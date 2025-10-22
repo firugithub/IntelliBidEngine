@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { ProposalCard } from "@/components/ProposalCard";
 import { ScoreCard } from "@/components/ScoreCard";
 import { ComparisonTable } from "@/components/ComparisonTable";
@@ -6,92 +5,110 @@ import { RoleViewTabs } from "@/components/RoleViewTabs";
 import { RadarChart } from "@/components/RadarChart";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, TrendingUp, DollarSign, Shield, Download, Upload } from "lucide-react";
-import { useLocation } from "wouter";
+import { CheckCircle2, TrendingUp, DollarSign, Shield, Download, Upload, Loader2 } from "lucide-react";
+import { useLocation, useParams } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+
+interface Evaluation {
+  id: string;
+  vendorName: string;
+  overallScore: number;
+  technicalFit: number;
+  deliveryRisk: number;
+  cost: string;
+  compliance: number;
+  status: "recommended" | "under-review" | "risk-flagged";
+  aiRationale: string | null;
+  roleInsights: any;
+  detailedScores: any;
+}
 
 export default function DashboardPage() {
   const [, setLocation] = useLocation();
-  
-  // todo: remove mock functionality - Replace with actual API data
-  const mockProposals = [
-    {
-      vendorName: "TechVendor Pro",
-      overallScore: 87,
-      technicalFit: 92,
-      deliveryRisk: 25,
-      cost: "$150K - $180K",
-      compliance: 95,
-      status: "recommended" as const,
-    },
-    {
-      vendorName: "CloudSolutions Inc",
-      overallScore: 79,
-      technicalFit: 85,
-      deliveryRisk: 35,
-      cost: "$120K - $150K",
-      compliance: 88,
-      status: "under-review" as const,
-    },
-    {
-      vendorName: "Enterprise Systems",
-      overallScore: 72,
-      technicalFit: 78,
-      deliveryRisk: 45,
-      cost: "$200K - $250K",
-      compliance: 92,
-      status: "risk-flagged" as const,
-    },
-  ];
+  const params = useParams();
+  const projectId = params.id;
 
-  const mockComparisonData = mockProposals.map((p) => ({
-    vendorName: p.vendorName,
-    technicalFit: p.technicalFit,
-    deliveryRisk: p.deliveryRisk,
-    cost: p.cost,
-    compliance: p.compliance,
-    integration: p.overallScore > 80 ? ("easy" as const) : p.overallScore > 70 ? ("moderate" as const) : ("complex" as const),
-    support: p.overallScore > 80 ? ("24/7" as const) : ("business-hours" as const),
+  const { data: evaluations, isLoading } = useQuery<Evaluation[]>({
+    queryKey: ["/api/projects", projectId, "evaluations"],
+    enabled: !!projectId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading evaluation results...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!evaluations || evaluations.length === 0) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="text-muted-foreground">No evaluations found</p>
+          <Button onClick={() => setLocation("/")}>
+            Start New Evaluation
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate aggregated metrics
+  const avgTechnicalFit = Math.round(
+    evaluations.reduce((sum, e) => sum + e.technicalFit, 0) / evaluations.length
+  );
+  
+  const lowestRisk = Math.min(...evaluations.map((e) => e.deliveryRisk));
+  const lowestRiskVendor = evaluations.find((e) => e.deliveryRisk === lowestRisk);
+
+  const bestValueEval = evaluations.reduce((prev, curr) => {
+    const prevCost = parseInt(prev.cost.replace(/[^0-9]/g, ""));
+    const currCost = parseInt(curr.cost.replace(/[^0-9]/g, ""));
+    return currCost < prevCost ? curr : prev;
+  });
+
+  const highestCompliance = Math.max(...evaluations.map((e) => e.compliance));
+  const highestComplianceVendor = evaluations.find((e) => e.compliance === highestCompliance);
+
+  // Prepare comparison table data
+  const comparisonData = evaluations.map((e) => ({
+    vendorName: e.vendorName,
+    technicalFit: e.technicalFit,
+    deliveryRisk: e.deliveryRisk,
+    cost: e.cost,
+    compliance: e.compliance,
+    integration: e.detailedScores?.integration > 80 ? ("easy" as const) : 
+                 e.detailedScores?.integration > 60 ? ("moderate" as const) : ("complex" as const),
+    support: e.detailedScores?.support > 80 ? ("24/7" as const) : ("business-hours" as const),
   }));
 
-  const mockRadarData = [
-    {
-      name: "TechVendor Pro",
-      color: "hsl(210, 100%, 60%)",
-      data: [
-        { criterion: "Technical Fit", score: 92 },
-        { criterion: "Cost", score: 75 },
-        { criterion: "Compliance", score: 95 },
-        { criterion: "Support", score: 88 },
-        { criterion: "Integration", score: 90 },
-      ],
-    },
-    {
-      name: "CloudSolutions Inc",
-      color: "hsl(142, 71%, 55%)",
-      data: [
-        { criterion: "Technical Fit", score: 85 },
-        { criterion: "Cost", score: 88 },
-        { criterion: "Compliance", score: 88 },
-        { criterion: "Support", score: 80 },
-        { criterion: "Integration", score: 78 },
-      ],
-    },
-    {
-      name: "Enterprise Systems",
-      color: "hsl(38, 92%, 60%)",
-      data: [
-        { criterion: "Technical Fit", score: 78 },
-        { criterion: "Cost", score: 65 },
-        { criterion: "Compliance", score: 92 },
-        { criterion: "Support", score: 85 },
-        { criterion: "Integration", score: 70 },
-      ],
-    },
-  ];
+  // Prepare radar chart data
+  const radarData = evaluations.map((e, index) => ({
+    name: e.vendorName,
+    color: index === 0 ? "hsl(210, 100%, 60%)" : 
+           index === 1 ? "hsl(142, 71%, 55%)" : 
+           "hsl(38, 92%, 60%)",
+    data: [
+      { criterion: "Technical Fit", score: e.technicalFit },
+      { criterion: "Cost", score: 100 - (parseInt(e.cost.replace(/[^0-9]/g, "")) / 3000) },
+      { criterion: "Compliance", score: e.compliance },
+      { criterion: "Support", score: e.detailedScores?.support || 75 },
+      { criterion: "Integration", score: e.detailedScores?.integration || 75 },
+    ],
+  }));
+
+  // Get role insights from top-rated vendor
+  const topVendor = evaluations.reduce((prev, curr) => 
+    curr.overallScore > prev.overallScore ? curr : prev
+  );
 
   const handleDownloadReport = () => {
     console.log("Downloading shortlisting report...");
-    // todo: remove mock functionality - Implement actual report download
+    // todo: Implement actual report download
   };
 
   const handleNewEvaluation = () => {
@@ -106,7 +123,7 @@ export default function DashboardPage() {
             <div>
               <h1 className="text-3xl font-bold mb-2">Shortlisting Report</h1>
               <p className="text-muted-foreground">
-                AI-generated evaluation of 3 vendor proposals
+                AI-generated evaluation of {evaluations.length} vendor proposal{evaluations.length > 1 ? 's' : ''}
               </p>
             </div>
             <div className="flex gap-2">
@@ -137,30 +154,30 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <ScoreCard
               title="Average Technical Fit"
-              value="85%"
+              value={`${avgTechnicalFit}%`}
               subtitle="Across all proposals"
               icon={CheckCircle2}
-              trend="up"
-              trendValue="+12% above threshold"
+              trend={avgTechnicalFit > 75 ? "up" : "neutral"}
+              trendValue={avgTechnicalFit > 75 ? "+12% above threshold" : "Meeting baseline"}
             />
             <ScoreCard
               title="Lowest Delivery Risk"
-              value="25%"
-              subtitle="TechVendor Pro"
+              value={`${lowestRisk}%`}
+              subtitle={lowestRiskVendor?.vendorName || ""}
               icon={TrendingUp}
               trend="down"
               trendValue="Low risk profile"
             />
             <ScoreCard
               title="Best Value"
-              value="$120K"
-              subtitle="CloudSolutions Inc"
+              value={bestValueEval.cost.split(" - ")[0]}
+              subtitle={bestValueEval.vendorName}
               icon={DollarSign}
             />
             <ScoreCard
               title="Highest Compliance"
-              value="95%"
-              subtitle="TechVendor Pro"
+              value={`${highestCompliance}%`}
+              subtitle={highestComplianceVendor?.vendorName || ""}
               icon={Shield}
               trend="up"
             />
@@ -169,11 +186,17 @@ export default function DashboardPage() {
           <div>
             <h2 className="text-2xl font-semibold mb-6">Shortlisted Proposals</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {mockProposals.map((proposal, index) => (
+              {evaluations.map((evaluation) => (
                 <ProposalCard
-                  key={index}
-                  {...proposal}
-                  onViewDetails={() => console.log(`View details for ${proposal.vendorName}`)}
+                  key={evaluation.id}
+                  vendorName={evaluation.vendorName}
+                  overallScore={evaluation.overallScore}
+                  technicalFit={evaluation.technicalFit}
+                  deliveryRisk={evaluation.deliveryRisk}
+                  cost={evaluation.cost}
+                  compliance={evaluation.compliance}
+                  status={evaluation.status}
+                  onViewDetails={() => console.log(`View details for ${evaluation.vendorName}`)}
                 />
               ))}
             </div>
@@ -187,7 +210,7 @@ export default function DashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <RadarChart vendors={mockRadarData} />
+              <RadarChart vendors={radarData} />
             </CardContent>
           </Card>
 
@@ -199,7 +222,7 @@ export default function DashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ComparisonTable data={mockComparisonData} />
+              <ComparisonTable data={comparisonData} />
             </CardContent>
           </Card>
 
@@ -208,47 +231,42 @@ export default function DashboardPage() {
             <RoleViewTabs
               deliveryInsights={{
                 title: "Delivery & PMO Assessment",
-                items: [
-                  "TechVendor Pro offers lowest timeline risk with 8-12 week implementation",
-                  "CloudSolutions Inc has moderate dependencies but competitive pricing",
-                  "Enterprise Systems requires complex integration affecting timeline",
-                  "All vendors have adequate team capability for project scope",
+                items: topVendor.roleInsights?.delivery || [
+                  "Analysis based on vendor proposals and requirements",
+                  "Timeline and resource allocation considerations",
+                  "Risk factors and mitigation strategies identified",
                 ],
               }}
               productInsights={{
                 title: "Product Requirements Coverage",
-                items: [
-                  "TechVendor Pro provides 92% feature coverage of core requirements",
-                  "All vendors support mobile platform requirements",
-                  "CloudSolutions Inc offers strongest customization options",
-                  "Enterprise Systems has best roadmap alignment for future phases",
+                items: topVendor.roleInsights?.product || [
+                  "Feature coverage analysis across proposals",
+                  "Product roadmap alignment considerations",
+                  "Customization and flexibility assessment",
                 ],
               }}
               architectureInsights={{
                 title: "Architecture & Security Analysis",
-                items: [
-                  "All vendors meet enterprise security compliance standards",
-                  "TechVendor Pro has simplest integration architecture",
-                  "Enterprise Systems offers most mature microservices approach",
-                  "CloudSolutions Inc provides adequate but moderate complexity APIs",
+                items: topVendor.roleInsights?.architecture || [
+                  "Technical architecture evaluation",
+                  "Security and compliance assessment",
+                  "Integration complexity analysis",
                 ],
               }}
               engineeringInsights={{
                 title: "Engineering & Quality Assessment",
-                items: [
-                  "TechVendor Pro has comprehensive SDK documentation and examples",
-                  "All vendors provide sandbox environments for testing",
-                  "CloudSolutions Inc has largest developer community",
-                  "Enterprise Systems offers most robust automated testing tools",
+                items: topVendor.roleInsights?.engineering || [
+                  "Development toolkit and SDK quality",
+                  "Testing and quality assurance capabilities",
+                  "Documentation and developer experience",
                 ],
               }}
               procurementInsights={{
                 title: "Commercial & TCO Analysis",
-                items: [
-                  "CloudSolutions Inc offers best initial pricing at $120K-$150K",
-                  "TechVendor Pro provides competitive 3-year TCO with 99.9% SLA",
-                  "Enterprise Systems has highest cost but includes premium support",
-                  "All vendors offer flexible contract terms and volume discounts",
+                items: topVendor.roleInsights?.procurement || [
+                  "Total cost of ownership assessment",
+                  "Contract terms and pricing structure",
+                  "SLA and support model evaluation",
                 ],
               }}
             />
@@ -256,41 +274,19 @@ export default function DashboardPage() {
 
           <Card className="bg-primary/5 border-primary/20">
             <CardHeader>
-              <CardTitle>Recommendation</CardTitle>
+              <CardTitle>AI Recommendation</CardTitle>
               <CardDescription>
                 AI-generated recommendation based on weighted scoring
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm">
-                Based on the comprehensive multi-criteria evaluation, <span className="font-semibold">TechVendor Pro</span> is
-                recommended as the preferred vendor with an overall fit score of 87%.
+                {topVendor.aiRationale || `Based on the comprehensive multi-criteria evaluation, ${topVendor.vendorName} is recommended as the preferred vendor with an overall fit score of ${topVendor.overallScore}%.`}
               </p>
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm">Key Strengths:</h4>
-                <ul className="space-y-1 text-sm">
-                  <li className="flex items-start gap-2">
-                    <span className="text-chart-2 mt-1">•</span>
-                    <span>Highest technical fit (92%) with strong alignment to requirements</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-chart-2 mt-1">•</span>
-                    <span>Lowest delivery risk (25%) enabling faster time to value</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-chart-2 mt-1">•</span>
-                    <span>Best compliance score (95%) reducing regulatory concerns</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-chart-2 mt-1">•</span>
-                    <span>Comprehensive documentation and developer support</span>
-                  </li>
-                </ul>
-              </div>
               <div className="space-y-2 pt-2">
                 <h4 className="font-semibold text-sm">Next Steps:</h4>
                 <ol className="space-y-1 text-sm list-decimal list-inside">
-                  <li>Schedule technical deep-dive with TechVendor Pro</li>
+                  <li>Schedule technical deep-dive with {topVendor.vendorName}</li>
                   <li>Request detailed pricing breakdown and contract terms</li>
                   <li>Conduct proof of concept for critical integration points</li>
                   <li>Obtain executive approval for budget allocation</li>

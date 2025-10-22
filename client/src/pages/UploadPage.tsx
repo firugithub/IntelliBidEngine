@@ -2,21 +2,106 @@ import { useState } from "react";
 import { FileUploadZone } from "@/components/FileUploadZone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { Sparkles, ArrowRight, Loader2, Eye } from "lucide-react";
 import { useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function UploadPage() {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [requirementsFiles, setRequirementsFiles] = useState<File[]>([]);
   const [proposalFiles, setProposalFiles] = useState<File[]>([]);
 
+  const analyzeMutation = useMutation({
+    mutationFn: async () => {
+      // Create project
+      const projectResponse = await apiRequest("/api/projects", {
+        method: "POST",
+        body: JSON.stringify({ name: "Vendor Evaluation " + new Date().toLocaleDateString() }),
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const projectId = (projectResponse as any).id;
+
+      // Upload requirements
+      const requirementsFormData = new FormData();
+      requirementsFiles.forEach((file) => {
+        requirementsFormData.append("files", file);
+      });
+
+      await fetch(`/api/projects/${projectId}/requirements`, {
+        method: "POST",
+        body: requirementsFormData,
+      });
+
+      // Upload proposals
+      const proposalsFormData = new FormData();
+      proposalFiles.forEach((file) => {
+        proposalsFormData.append("files", file);
+      });
+
+      await fetch(`/api/projects/${projectId}/proposals`, {
+        method: "POST",
+        body: proposalsFormData,
+      });
+
+      // Trigger analysis
+      await fetch(`/api/projects/${projectId}/analyze`, {
+        method: "POST",
+      });
+
+      return projectId;
+    },
+    onSuccess: (projectId) => {
+      toast({
+        title: "Analysis Complete",
+        description: "Your vendor shortlisting report is ready!",
+      });
+      setLocation(`/dashboard/${projectId}`);
+    },
+    onError: (error) => {
+      toast({
+        title: "Analysis Failed",
+        description: error instanceof Error ? error.message : "Failed to analyze documents",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const demoMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("/api/seed-sample", {
+        method: "POST",
+      });
+      return (response as any).projectId;
+    },
+    onSuccess: (projectId) => {
+      toast({
+        title: "Demo Loaded",
+        description: "Viewing sample evaluation report",
+      });
+      setLocation(`/dashboard/${projectId}`);
+    },
+    onError: (error) => {
+      toast({
+        title: "Demo Failed",
+        description: error instanceof Error ? error.message : "Failed to load demo",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleAnalyze = () => {
-    console.log("Analyzing files:", { requirementsFiles, proposalFiles });
-    // todo: remove mock functionality - Navigate to dashboard after API call
-    setLocation("/dashboard");
+    analyzeMutation.mutate();
   };
 
-  const canAnalyze = requirementsFiles.length > 0 && proposalFiles.length > 0;
+  const handleViewDemo = () => {
+    demoMutation.mutate();
+  };
+
+  const canAnalyze = requirementsFiles.length > 0 && proposalFiles.length > 0 && !analyzeMutation.isPending;
 
   return (
     <div className="min-h-screen bg-background">
@@ -32,6 +117,27 @@ export default function UploadPage() {
             Upload your requirements and vendor proposals to get objective,
             transparent shortlisting with role-specific insights
           </p>
+          <div className="mt-6">
+            <Button
+              variant="outline"
+              onClick={handleViewDemo}
+              disabled={demoMutation.isPending}
+              className="gap-2"
+              data-testid="button-view-demo"
+            >
+              {demoMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading Demo...
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4" />
+                  View Sample Report
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-8">
@@ -75,16 +181,36 @@ export default function UploadPage() {
               className="gap-2"
               data-testid="button-analyze"
             >
-              <Sparkles className="h-5 w-5" />
-              Analyze with AI
-              <ArrowRight className="h-5 w-5" />
+              {analyzeMutation.isPending ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Analyzing with AI...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-5 w-5" />
+                  Analyze with AI
+                  <ArrowRight className="h-5 w-5" />
+                </>
+              )}
             </Button>
           </div>
 
-          {!canAnalyze && (
+          {!canAnalyze && !analyzeMutation.isPending && (
             <p className="text-center text-sm text-muted-foreground">
               Upload at least one requirements document and one vendor proposal to continue
             </p>
+          )}
+
+          {analyzeMutation.isPending && (
+            <div className="text-center space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Parsing documents and running AI analysis...
+              </p>
+              <p className="text-xs text-muted-foreground">
+                This may take 30-60 seconds depending on document size
+              </p>
+            </div>
           )}
         </div>
       </div>

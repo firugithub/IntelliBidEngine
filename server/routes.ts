@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import multer from "multer";
 import { parseDocument } from "./services/documentParser";
 import { analyzeRequirements, analyzeProposal, evaluateProposal } from "./services/aiAnalysis";
+import { seedSampleData } from "./services/sampleData";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -11,6 +12,17 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Seed sample data endpoint
+  app.post("/api/seed-sample", async (req, res) => {
+    try {
+      const projectId = await seedSampleData();
+      res.json({ projectId, message: "Sample data seeded successfully" });
+    } catch (error) {
+      console.error("Error seeding sample data:", error);
+      res.status(500).json({ error: "Failed to seed sample data" });
+    }
+  });
+
   // Create a new project
   app.post("/api/projects", async (req, res) => {
     try {
