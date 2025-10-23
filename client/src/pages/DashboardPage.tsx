@@ -5,9 +5,17 @@ import { RoleViewTabs } from "@/components/RoleViewTabs";
 import { RadarChart } from "@/components/RadarChart";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, TrendingUp, DollarSign, Shield, Download, Upload, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { CheckCircle2, TrendingUp, DollarSign, Shield, Download, Upload, Loader2, X } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 interface Evaluation {
   id: string;
@@ -27,6 +35,7 @@ export default function DashboardPage() {
   const [, setLocation] = useLocation();
   const params = useParams();
   const projectId = params.id;
+  const [selectedVendor, setSelectedVendor] = useState<Evaluation | null>(null);
 
   const { data: evaluations, isLoading } = useQuery<Evaluation[]>({
     queryKey: ["/api/projects", projectId, "evaluations"],
@@ -196,7 +205,7 @@ export default function DashboardPage() {
                   cost={evaluation.cost}
                   compliance={evaluation.compliance}
                   status={evaluation.status}
-                  onViewDetails={() => console.log(`View details for ${evaluation.vendorName}`)}
+                  onViewDetails={() => setSelectedVendor(evaluation)}
                 />
               ))}
             </div>
@@ -296,6 +305,133 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={!!selectedVendor} onOpenChange={() => setSelectedVendor(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto" data-testid="dialog-vendor-details">
+          {selectedVendor && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-2xl flex items-center justify-between">
+                  {selectedVendor.vendorName}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSelectedVendor(null)}
+                    data-testid="button-close-dialog"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </DialogTitle>
+                <DialogDescription>
+                  Comprehensive evaluation and role-specific insights
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6 py-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Overall Score</p>
+                    <p className="text-2xl font-bold font-mono">{selectedVendor.overallScore}%</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Technical Fit</p>
+                    <p className="text-2xl font-bold font-mono">{selectedVendor.technicalFit}%</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Compliance</p>
+                    <p className="text-2xl font-bold font-mono">{selectedVendor.compliance}%</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Delivery Risk</p>
+                    <p className="text-2xl font-bold font-mono">{selectedVendor.deliveryRisk}%</p>
+                  </div>
+                </div>
+
+                {selectedVendor.detailedScores && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Detailed Scores</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Integration</p>
+                          <p className="text-lg font-semibold font-mono">{selectedVendor.detailedScores.integration}%</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Support</p>
+                          <p className="text-lg font-semibold font-mono">{selectedVendor.detailedScores.support}%</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Scalability</p>
+                          <p className="text-lg font-semibold font-mono">{selectedVendor.detailedScores.scalability}%</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Documentation</p>
+                          <p className="text-lg font-semibold font-mono">{selectedVendor.detailedScores.documentation}%</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {selectedVendor.aiRationale && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">AI Evaluation Summary</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm leading-relaxed">{selectedVendor.aiRationale}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {selectedVendor.roleInsights && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Role-Specific Insights</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <RoleViewTabs
+                        deliveryInsights={{
+                          title: "Delivery & PMO Assessment",
+                          items: selectedVendor.roleInsights.delivery || [],
+                        }}
+                        productInsights={{
+                          title: "Product Requirements Coverage",
+                          items: selectedVendor.roleInsights.product || [],
+                        }}
+                        architectureInsights={{
+                          title: "Architecture & Security Analysis",
+                          items: selectedVendor.roleInsights.architecture || [],
+                        }}
+                        engineeringInsights={{
+                          title: "Engineering & Quality Assessment",
+                          items: selectedVendor.roleInsights.engineering || [],
+                        }}
+                        procurementInsights={{
+                          title: "Commercial & TCO Analysis",
+                          items: selectedVendor.roleInsights.procurement || [],
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
+                )}
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setSelectedVendor(null)}
+                    data-testid="button-close"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
