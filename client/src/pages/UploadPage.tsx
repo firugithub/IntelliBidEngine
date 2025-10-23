@@ -17,13 +17,12 @@ export default function UploadPage() {
   const analyzeMutation = useMutation({
     mutationFn: async () => {
       // Create project
-      const projectResponse = await apiRequest("/api/projects", {
-        method: "POST",
-        body: JSON.stringify({ name: "Vendor Evaluation " + new Date().toLocaleDateString() }),
-        headers: { "Content-Type": "application/json" },
+      const projectResponse = await apiRequest("POST", "/api/projects", {
+        name: "Vendor Evaluation " + new Date().toLocaleDateString(),
       });
 
-      const projectId = (projectResponse as any).id;
+      const projectData = await projectResponse.json();
+      const projectId = projectData.id;
 
       // Upload requirements
       const requirementsFormData = new FormData();
@@ -72,10 +71,9 @@ export default function UploadPage() {
 
   const demoMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("/api/seed-sample", {
-        method: "POST",
-      });
-      return (response as any).projectId;
+      const response = await apiRequest("POST", "/api/seed-sample");
+      const data = await response.json();
+      return data.projectId;
     },
     onSuccess: (projectId) => {
       toast({

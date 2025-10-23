@@ -10,8 +10,11 @@ IntelliBid is an AI-powered platform that transforms the vendor evaluation proce
 - Perform semantic matching of vendor capabilities against requirements
 - Generate weighted scoring across multiple dimensions (technical fit, delivery risk, cost, compliance)
 - Provide role-specific insights and recommendations for cross-functional teams
+- Demo mode with pre-loaded sample evaluations for immediate testing
 
 **Target Users:** Delivery Managers, Procurement teams, Product Managers, Architects, Engineers, and QA teams involved in vendor selection decisions.
+
+**Current Status:** ✅ Fully functional MVP with complete frontend, backend, AI analysis, and sample data seeding. Ready for testing and deployment.
 
 ## User Preferences
 
