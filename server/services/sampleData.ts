@@ -1,10 +1,54 @@
 import { storage } from "../storage";
 
+const DEPARTMENTS = [
+  { name: "Group Services", description: "Corporate services and group-wide initiatives" },
+  { name: "Operations, Safety & Security", description: "Operational excellence and safety management" },
+  { name: "Customer Brand and Experience", description: "Customer experience and brand management" },
+  { name: "Commercial", description: "Commercial operations and business development" },
+  { name: "Web and Mobile", description: "Digital platforms and mobile applications" },
+  { name: "Enterprise Technology", description: "Enterprise technology solutions and infrastructure" },
+  { name: "Dnata & Dnata International", description: "Aviation and travel services" },
+  { name: "Dnata Travel", description: "Travel and tourism services" },
+  { name: "CyberSecurity", description: "Information security and cyber defense" },
+  { name: "Data(EDH)", description: "Enterprise data and analytics" },
+];
+
+export async function seedDepartments() {
+  try {
+    const departments = await storage.getAllDepartments();
+    
+    // Only seed if departments don't exist
+    if (departments.length === 0) {
+      for (const dept of DEPARTMENTS) {
+        await storage.createDepartment(dept);
+      }
+      console.log(`Seeded ${DEPARTMENTS.length} departments`);
+    }
+    
+    return await storage.getAllDepartments();
+  } catch (error) {
+    console.error("Error seeding departments:", error);
+    throw error;
+  }
+}
+
 export async function seedSampleData() {
   try {
+    // Create or get Enterprise Technology department
+    let department = await storage.getDepartmentByName("Enterprise Technology");
+    if (!department) {
+      department = await storage.createDepartment({
+        name: "Enterprise Technology",
+        description: "Enterprise technology solutions and infrastructure",
+      });
+    }
+
     // Create a sample project
     const project = await storage.createProject({
-      name: "Sample Vendor Evaluation",
+      departmentId: department.id,
+      name: "Cloud Platform Evaluation",
+      initiativeName: "Digital Transformation 2025",
+      vendorList: ["TechVendor Pro", "CloudSolutions Inc", "Enterprise Systems"],
       status: "completed",
     });
 

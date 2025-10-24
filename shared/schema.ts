@@ -3,9 +3,19 @@ import { pgTable, text, varchar, integer, jsonb, timestamp } from "drizzle-orm/p
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const departments = pgTable("departments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  departmentId: varchar("department_id").notNull(),
   name: text("name").notNull(),
+  initiativeName: text("initiative_name"),
+  vendorList: text("vendor_list").array(),
   status: text("status").notNull().default("analyzing"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -44,6 +54,11 @@ export const evaluations = pgTable("evaluations", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const insertDepartmentSchema = createInsertSchema(departments).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
   createdAt: true,
@@ -63,6 +78,9 @@ export const insertEvaluationSchema = createInsertSchema(evaluations).omit({
   id: true,
   createdAt: true,
 });
+
+export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
+export type Department = typeof departments.$inferSelect;
 
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Project = typeof projects.$inferSelect;

@@ -6,6 +6,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import NotFound from "@/pages/not-found";
+import HomePage from "@/pages/HomePage";
+import DepartmentPage from "@/pages/DepartmentPage";
+import NewProjectPage from "@/pages/NewProjectPage";
 import UploadPage from "@/pages/UploadPage";
 import DashboardPage from "@/pages/DashboardPage";
 import { Sparkles } from "lucide-react";
@@ -13,7 +16,10 @@ import { Sparkles } from "lucide-react";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={UploadPage} />
+      <Route path="/" component={HomePage} />
+      <Route path="/department/:id" component={DepartmentPage} />
+      <Route path="/department/:id/new-project" component={NewProjectPage} />
+      <Route path="/department/:id/upload" component={UploadPage} />
       <Route path="/dashboard/:id" component={DashboardPage} />
       <Route component={NotFound} />
     </Switch>

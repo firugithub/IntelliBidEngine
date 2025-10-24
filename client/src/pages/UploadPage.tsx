@@ -1,28 +1,48 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FileUploadZone } from "@/components/FileUploadZone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sparkles, ArrowRight, Loader2, Eye } from "lucide-react";
-import { useLocation } from "wouter";
+import { ArrowRight, Loader2, ArrowLeft } from "lucide-react";
+import { useLocation, useParams } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 export default function UploadPage() {
+  const params = useParams();
+  const departmentId = params.id;
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [requirementsFiles, setRequirementsFiles] = useState<File[]>([]);
   const [proposalFiles, setProposalFiles] = useState<File[]>([]);
+  const [projectData, setProjectData] = useState<any>(null);
+
+  useEffect(() => {
+    // Get project data from session storage
+    const data = sessionStorage.getItem("newProjectData");
+    if (data) {
+      setProjectData(JSON.parse(data));
+    } else {
+      // Redirect back if no project data
+      setLocation(`/department/${departmentId}/new-project`);
+    }
+  }, [departmentId, setLocation]);
 
   const analyzeMutation = useMutation({
     mutationFn: async () => {
-      // Create project
+      if (!projectData) throw new Error("No project data found");
+
+      // Create project with details
       const projectResponse = await apiRequest("POST", "/api/projects", {
-        name: "Vendor Evaluation " + new Date().toLocaleDateString(),
+        departmentId: projectData.departmentId,
+        name: projectData.projectName,
+        initiativeName: projectData.initiativeName,
+        vendorList: projectData.vendorList,
       });
 
-      const projectData = await projectResponse.json();
-      const projectId = projectData.id;
+      const createdProject = await projectResponse.json();
+      const projectId = createdProject.id;
 
       // Upload requirements
       const requirementsFormData = new FormData();
@@ -54,6 +74,9 @@ export default function UploadPage() {
       return projectId;
     },
     onSuccess: (projectId) => {
+      // Clear session storage
+      sessionStorage.removeItem("newProjectData");
+      
       toast({
         title: "Analysis Complete",
         description: "Your vendor shortlisting report is ready!",
@@ -69,74 +92,59 @@ export default function UploadPage() {
     },
   });
 
-  const demoMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/seed-sample");
-      const data = await response.json();
-      return data.projectId;
-    },
-    onSuccess: (projectId) => {
-      toast({
-        title: "Demo Loaded",
-        description: "Viewing sample evaluation report",
-      });
-      setLocation(`/dashboard/${projectId}`);
-    },
-    onError: (error) => {
-      toast({
-        title: "Demo Failed",
-        description: error instanceof Error ? error.message : "Failed to load demo",
-        variant: "destructive",
-      });
-    },
-  });
-
   const handleAnalyze = () => {
     analyzeMutation.mutate();
   };
 
-  const handleViewDemo = () => {
-    demoMutation.mutate();
-  };
-
   const canAnalyze = requirementsFiles.length > 0 && proposalFiles.length > 0 && !analyzeMutation.isPending;
+
+  if (!projectData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-12 max-w-5xl">
-        <div className="mb-12 text-center">
-          <div className="inline-flex items-center justify-center p-2 rounded-full bg-primary/10 mb-4">
-            <Sparkles className="h-6 w-6 text-primary" />
-          </div>
-          <h1 className="text-4xl font-bold mb-4">
-            AI-Powered Vendor Shortlisting
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Upload your requirements and vendor proposals to get objective,
-            transparent shortlisting with role-specific insights
+      <div className="border-b">
+        <div className="container mx-auto px-4 py-6">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setLocation(`/department/${departmentId}/new-project`)}
+            className="gap-2 mb-2"
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Project Details
+          </Button>
+          <h1 className="text-3xl font-bold mb-2">Upload Documents</h1>
+          <p className="text-muted-foreground">
+            {projectData.projectName}
+            {projectData.initiativeName && ` • ${projectData.initiativeName}`}
           </p>
-          <div className="mt-6">
-            <Button
-              variant="outline"
-              onClick={handleViewDemo}
-              disabled={demoMutation.isPending}
-              className="gap-2"
-              data-testid="button-view-demo"
-            >
-              {demoMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading Demo...
-                </>
-              ) : (
-                <>
-                  <Eye className="h-4 w-4" />
-                  View Sample Report
-                </>
-              )}
-            </Button>
-          </div>
         </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-8 max-w-5xl">
+        {projectData.vendorList && projectData.vendorList.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg">Vendors to Evaluate</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {projectData.vendorList.map((vendor: string) => (
+                  <Badge key={vendor} variant="secondary">
+                    {vendor}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="space-y-8">
           <Card>

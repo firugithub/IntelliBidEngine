@@ -1,4 +1,6 @@
 import {
+  type Department,
+  type InsertDepartment,
   type Project,
   type InsertProject,
   type Requirement,
@@ -11,10 +13,17 @@ import {
 import { randomUUID } from "crypto";
 
 export interface IStorage {
+  // Departments
+  createDepartment(department: InsertDepartment): Promise<Department>;
+  getDepartment(id: string): Promise<Department | undefined>;
+  getAllDepartments(): Promise<Department[]>;
+  getDepartmentByName(name: string): Promise<Department | undefined>;
+
   // Projects
   createProject(project: InsertProject): Promise<Project>;
   getProject(id: string): Promise<Project | undefined>;
   getAllProjects(): Promise<Project[]>;
+  getProjectsByDepartment(departmentId: string): Promise<Project[]>;
   updateProjectStatus(id: string, status: string): Promise<void>;
 
   // Requirements
@@ -33,23 +42,52 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
+  private departments: Map<string, Department>;
   private projects: Map<string, Project>;
   private requirements: Map<string, Requirement>;
   private proposals: Map<string, Proposal>;
   private evaluations: Map<string, Evaluation>;
 
   constructor() {
+    this.departments = new Map();
     this.projects = new Map();
     this.requirements = new Map();
     this.proposals = new Map();
     this.evaluations = new Map();
   }
 
+  async createDepartment(insertDepartment: InsertDepartment): Promise<Department> {
+    const id = randomUUID();
+    const department: Department = {
+      id,
+      name: insertDepartment.name,
+      description: insertDepartment.description || null,
+      createdAt: new Date(),
+    };
+    this.departments.set(id, department);
+    return department;
+  }
+
+  async getDepartment(id: string): Promise<Department | undefined> {
+    return this.departments.get(id);
+  }
+
+  async getAllDepartments(): Promise<Department[]> {
+    return Array.from(this.departments.values());
+  }
+
+  async getDepartmentByName(name: string): Promise<Department | undefined> {
+    return Array.from(this.departments.values()).find(d => d.name === name);
+  }
+
   async createProject(insertProject: InsertProject): Promise<Project> {
     const id = randomUUID();
     const project: Project = {
       id,
+      departmentId: insertProject.departmentId,
       name: insertProject.name,
+      initiativeName: insertProject.initiativeName || null,
+      vendorList: insertProject.vendorList || null,
       status: insertProject.status || "analyzing",
       createdAt: new Date(),
     };
@@ -63,6 +101,12 @@ export class MemStorage implements IStorage {
 
   async getAllProjects(): Promise<Project[]> {
     return Array.from(this.projects.values());
+  }
+
+  async getProjectsByDepartment(departmentId: string): Promise<Project[]> {
+    return Array.from(this.projects.values()).filter(
+      (project) => project.departmentId === departmentId
+    );
   }
 
   async updateProjectStatus(id: string, status: string): Promise<void> {
